@@ -1,0 +1,14 @@
+[project]
+name = "bsr-compare-vcf"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "cirro==1.5.4",
+    "marimo>=0.14.16",
+    "pandas>=2.3.1",
+    "plotly>=6.2.0",
+    "scipy>=1.16.1",
+    "seaborn>=0.13.2",
+]
