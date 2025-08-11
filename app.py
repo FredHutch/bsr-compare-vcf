@@ -442,16 +442,16 @@ def _(mo):
     get_vcf2, set_vcf2 = mo.state(None)
     get_opacity, set_opacity = mo.state(0.5)
     get_af_threshold, set_af_threshold = mo.state(0.25)
-    get_figure_width, set_figure_width = mo.state(600)
+    get_figure_height, set_figure_height = mo.state(600)
     return (
         get_af_threshold,
-        get_figure_width,
+        get_figure_height,
         get_opacity,
         get_selected_vcfs,
         get_vcf1,
         get_vcf2,
         set_af_threshold,
-        set_figure_width,
+        set_figure_height,
         set_opacity,
         set_selected_vcfs,
         set_vcf1,
@@ -464,7 +464,7 @@ def _(
     ComparisonTool,
     List,
     get_af_threshold,
-    get_figure_width,
+    get_figure_height,
     get_opacity,
     get_selected_vcfs,
     get_vcf1,
@@ -477,7 +477,7 @@ def _(
     px,
     read_vcf,
     set_af_threshold,
-    set_figure_width,
+    set_figure_height,
     set_opacity,
     set_selected_vcfs,
     set_vcf1,
@@ -555,7 +555,7 @@ def _(
                 - {vcf2}
                 - {af_threshold}
                 - {opacity}
-                - {width}
+                - {height}
                 """).batch(
                     vcf2=mo.ui.dropdown(
                         label="VCF2",
@@ -585,15 +585,15 @@ def _(
                         value=get_opacity(),
                         on_change=set_opacity
                     ),
-                    width=mo.ui.number(
-                        label="Figure Width:",
+                    height=mo.ui.number(
+                        label="Figure Height:",
                         start=100,
-                        value=get_figure_width(),
-                        on_change=set_figure_width
+                        value=get_figure_height(),
+                        on_change=set_figure_height
                     )
                 )
 
-        def display1(self, selected_vcfs: List[str], vcf1: str, vcf2: str, af_threshold: float, opacity: float, width: int):
+        def display1(self, selected_vcfs: List[str], vcf1: str, vcf2: str, af_threshold: float, opacity: float, height: int):
 
             msg = ""
             if vcf1 is None:
@@ -625,11 +625,11 @@ def _(
                 )
 
             return mo.vstack([
-                self.scatter(af_df, vcf1, vcf2, opacity, af_threshold, width),
-                self.venn(af_df, vcf1, vcf2, af_threshold, width)
+                self.scatter(af_df, vcf1, vcf2, opacity, af_threshold, height),
+                self.venn(af_df, vcf1, vcf2, af_threshold, height)
             ])
 
-        def scatter(self, af_df: pd.DataFrame, vcf1: str, vcf2: str, opacity: float, af_threshold: float, width: int):
+        def scatter(self, af_df: pd.DataFrame, vcf1: str, vcf2: str, opacity: float, af_threshold: float, height: int):
 
             fig = px.scatter(
                 data_frame=af_df,
@@ -643,13 +643,14 @@ def _(
                 },
                 template="simple_white",
                 opacity=opacity,
-                width=width
+                height=height,
+                width=height,
             )
             fig.add_vline(x=af_threshold, line_dash="dash", line_width=3)
             fig.add_hline(y=af_threshold, line_dash="dash", line_width=3)
             return mo.ui.plotly(fig)
 
-        def venn(self, af_df: pd.DataFrame, vcf1: str, vcf2: str, af_threshold: float, width: int):
+        def venn(self, af_df: pd.DataFrame, vcf1: str, vcf2: str, af_threshold: float, height: int):
 
             # Get the number of total variants passing the threshold for either sample, and the number shared
             totals = {cname: (cvals >= af_threshold).sum() for cname, cvals in af_df.items() if cname in [vcf1, vcf2]}
@@ -664,7 +665,7 @@ def _(
             fig = go.Figure()
 
             # Make a circle for each sample
-            venn_coords, xrange, yrange, overlap_x = self.venn_coords(totals[vcf1], totals[vcf2], shared)
+            venn_coords, xrange, yrange, overlap_y = self.venn_coords(totals[vcf1], totals[vcf2], shared)
             for sample_name, coords in zip([vcf1, vcf2], venn_coords):
                 fig.add_shape(
                     type="circle",
@@ -680,17 +681,17 @@ def _(
                 fig.add_annotation(
                     text=f'{sample_name.rsplit("):", 1)[1]}={totals[sample_name]:,}',
                     x=np.mean([coords["x0"], coords["x1"]]),
-                    y=0,
+                    y=np.mean([coords["y0"], coords["y1"]]),
                     showarrow=False
                 )
 
             # Annotate the overlap
             fig.add_annotation(
                 text=f"Shared={shared:,}",
-                x=overlap_x,
-                y=yrange[1] * -0.1,
-                ax=0,
-                ay=yrange[1],
+                x=0.5 * xrange[1],
+                y=overlap_y,
+                ax=xrange[1],
+                ay=0,
                 showarrow=True,
                 arrowwidth=1,
                 arrowhead=5,
@@ -703,7 +704,7 @@ def _(
             # Get the x and y span so that the figure size can be computed to be square
             xspan = xrange[1] - xrange[0]
             yspan = yrange[1] - yrange[0]
-            height = (width / xspan) * yspan
+            width = (height / yspan) * xspan
 
             fig.update_layout(template="simple_white", width=width, height=height)
 
@@ -719,21 +720,21 @@ def _(
             # The circle for A will be centered on 0/0
             # Find the position of B where the overlapping space is closest to the actual
             calc_shared = {
-                x: self.calculate_overlap_area(0, 0, radius_a, x, 0, radius_b)
-                for x in np.arange(0, 1.2 * (radius_a + radius_b), (radius_a + radius_b) / 1000)
+                y: self.calculate_overlap_area(0, 0, radius_a, y, 0, radius_b)
+                for y in np.arange(0, 1.2 * (radius_a + radius_b), (radius_a + radius_b) / 1000)
             }
             # Find the difference between the computed overlap and the desired
-            error = {x: np.abs(shared - a) for x, a in calc_shared.items()}
+            error = {y: np.abs(shared - a) for y, a in calc_shared.items()}
 
             # Get the smallest value of X that has the lowest error
-            x_b = next(x for x, e in error.items() if e <= np.min(list(error.values())))
+            y_b = next(y for y, e in error.items() if e <= np.min(list(error.values())))
 
             # Compute the range of each axis to display
-            xrange = (1.1 * min(-radius_a, x_b - radius_b), 1.1 * max(radius_a, x_b + radius_b))
-            yrange = (1.1 * min(-radius_a, -radius_b), 1.1 * max(radius_a, radius_b))
+            xrange = (1.1 * min(-radius_a, -radius_b), 1.1 * max(radius_a, radius_b))
+            yrange = (1.1 * min(-radius_a, y_b - radius_b), 1.1 * max(radius_a, y_b + radius_b))
 
-            # Compute the middle of the x overlap for the circles
-            overlap_x = np.mean([radius_a, x_b - radius_b])
+            # Compute the middle of the y overlap for the circles
+            overlap_y = np.mean([radius_a, y_b - radius_b])
 
             # Return the x/y coordinates for those two circles
             return [
@@ -744,12 +745,12 @@ def _(
                     y1=radius_a
                 ),
                 dict(
-                    x0=x_b - radius_b,
-                    y0=-radius_b,
-                    x1=x_b + radius_b,
-                    y1=radius_b
+                    x0=-radius_b,
+                    y0=y_b - radius_b,
+                    x1=radius_b,
+                    y1=y_b + radius_b
                 )
-            ], xrange, yrange, overlap_x
+            ], xrange, yrange, overlap_y
 
         @staticmethod
         def calculate_overlap_area(x1, y1, r1, x2, y2, r2):
