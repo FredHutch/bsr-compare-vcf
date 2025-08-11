@@ -389,12 +389,14 @@ def _(
 @app.cell
 def _(mo):
     with mo.status.spinner("Loading dependencies"):
+        import seaborn as sns
+        import matplotlib.pyplot as plt
         import plotly.express as px
         import plotly.graph_objects as go
         import math
         import numpy as np
 
-    return go, math, np, px
+    return go, math, np, plt, sns
 
 
 @app.cell
@@ -474,7 +476,7 @@ def _(
     mo,
     np,
     pd,
-    px,
+    plt,
     read_vcf,
     set_af_threshold,
     set_figure_height,
@@ -482,6 +484,7 @@ def _(
     set_selected_vcfs,
     set_vcf1,
     set_vcf2,
+    sns,
 ):
     class CompareTwoSamples(ComparisonTool):
         name = "Compare Two Samples"
@@ -626,29 +629,56 @@ def _(
 
             return mo.vstack([
                 self.scatter(af_df, vcf1, vcf2, opacity, af_threshold, height),
-                self.venn(af_df, vcf1, vcf2, af_threshold, height)
+                self.venn(af_df, vcf1, vcf2, af_threshold, height),
+                self.shared_hit_table(af_df, vcf1, vcf2, af_threshold)
             ])
+
+        def shared_hit_table(self, af_df, vcf1, vcf2, af_threshold):
+            return (
+                af_df
+                .query(f"`{vcf1}` >= {af_threshold}")
+                .query(f"`{vcf2}` >= {af_threshold}")
+                .assign(
+                    COMBINED=lambda d: d.apply(
+                        lambda r: r[vcf1] + r[vcf2],
+                        axis=1
+                    )
+                )
+                .sort_values(by="COMBINED", ascending=False)
+                .drop(columns=["COMBINED"])
+                .head(1000)
+            )
 
         def scatter(self, af_df: pd.DataFrame, vcf1: str, vcf2: str, opacity: float, af_threshold: float, height: int):
 
-            fig = px.scatter(
-                data_frame=af_df,
+            fig, ax = plt.subplots(figsize=(int(height / 100), int(height / 100)))
+            sns.scatterplot(
+                data=af_df,
                 x=vcf1,
                 y=vcf2,
-                hover_data=["CHROM", "POS", "REF", "ALT"],
-                # Do not include the filename in the display
-                labels={
-                    vcf1: vcf1.split("):")[-1],
-                    vcf2: vcf2.split("):")[-1]
-                },
-                template="simple_white",
-                opacity=opacity,
-                height=height,
-                width=height,
+                alpha=opacity,
+                linewidth=0,
+                ax=ax,
+                # hover_data=["CHROM", "POS", "REF", "ALT"],
+                # # Do not include the filename in the display
+                # labels={
+                #     vcf1: vcf1.split("):")[-1],
+                #     vcf2: vcf2.split("):")[-1]
+                # },
+                # template="simple_white",
+                # opacity=opacity,
+                # height=height,
+                # width=height,
             )
-            fig.add_vline(x=af_threshold, line_dash="dash", line_width=3)
-            fig.add_hline(y=af_threshold, line_dash="dash", line_width=3)
-            return mo.ui.plotly(fig)
+            # fig.add_vline(x=af_threshold, line_dash="dash", line_width=3)
+            # fig.add_hline(y=af_threshold, line_dash="dash", line_width=3)
+            # return mo.ui.plotly(fig)
+
+            plt.axhline(y=af_threshold)
+            plt.axvline(x=af_threshold)
+            plt.xlabel(vcf1.split("):")[-1] + " (AF)")
+            plt.ylabel(vcf2.split("):")[-1] + " (AF)")
+            return mo.mpl.interactive(fig)
 
         def venn(self, af_df: pd.DataFrame, vcf1: str, vcf2: str, af_threshold: float, height: int):
 
