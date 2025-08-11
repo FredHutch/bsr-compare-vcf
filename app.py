@@ -398,7 +398,7 @@ def _(mo):
 
 
 @app.cell
-def _(DataPortalFiles, Dict, List, mo):
+def _(DataPortalFiles, Dict, List, mo, pd):
     class ComparisonTool:
         """
         Generic base class which can be used to build comparison tools.
@@ -426,7 +426,7 @@ def _(DataPortalFiles, Dict, List, mo):
         def display3(self, **kwargs):
             pass
 
-        def read_and_combine_vcfs(selected_vcfs: List[str]) -> Dict[str]:
+        def read_and_combine_vcfs(selected_vcfs: List[str]) -> Dict[str, pd.DataFrame]:
             """
             When the user selects 
             """
@@ -696,7 +696,7 @@ def _(
                 arrowhead=5,
                 arrowcolor="black",
             )
-        
+
             fig.update_xaxes(range=xrange, zeroline=False, visible=False)
             fig.update_yaxes(range=yrange, zeroline=False, visible=False)
 
@@ -704,7 +704,7 @@ def _(
             xspan = xrange[1] - xrange[0]
             yspan = yrange[1] - yrange[0]
             height = (width / xspan) * yspan
-        
+
             fig.update_layout(template="simple_white", width=width, height=height)
 
             return mo.ui.plotly(fig)
@@ -750,21 +750,21 @@ def _(
                     y1=radius_b
                 )
             ], xrange, yrange, overlap_x
-        
+
         @staticmethod
         def calculate_overlap_area(x1, y1, r1, x2, y2, r2):
             """
             Calculates the area of overlap between two circles.
-    
+
             Args:
                 x1, y1, r1: Center coordinates and radius of the first circle.
                 x2, y2, r2: Center coordinates and radius of the second circle.
-    
+
             Returns:
                 The area of overlap.
             """
             d = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
-    
+
             # No overlap
             if d >= r1 + r2:
                 return 0.0
@@ -776,11 +776,11 @@ def _(
                 # Angles for the circular segments
                 alpha1 = math.acos((d**2 + r1**2 - r2**2) / (2 * d * r1))
                 alpha2 = math.acos((d**2 + r2**2 - r1**2) / (2 * d * r2))
-    
+
                 # Area of circular segments
                 area1 = r1**2 * alpha1 - 0.5 * r1**2 * math.sin(2 * alpha1)
                 area2 = r2**2 * alpha2 - 0.5 * r2**2 * math.sin(2 * alpha2)
-    
+
                 return area1 + area2
 
     return (CompareTwoSamples,)
